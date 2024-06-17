@@ -1,0 +1,75 @@
+edition: 3.0.8
+name: hello-world-app
+access: default
+
+vars:
+  region: cn-beijing  # 示例变量，具体值根据实际情况填写
+
+actions:
+  pre-deploy:
+    - run: npm install
+      path: ./src
+  success-deploy:
+    - plugin: dingding-robot
+      allow_failure: true
+      args:
+        key: value
+  fail-deploy:
+    - plugin: dingding-robot
+      allow_failure: true  # 修正语法错误
+      args:
+        key: value
+  complete-deploy:
+    - plugin: dingding-robot
+      args:
+        key: value
+
+resources:
+  nextjs_portal:
+    component: fc3
+    actions:
+      pre-deploy:
+        - run: npm install
+          path: ./nextjs_portal
+      success-deploy:
+        - component: fc3 invoke
+          allow_failure: true
+    props:
+      region: ${vars.region}
+      functionName: nextjs_portal
+      runtime: nodejs14
+      code: ./nextjs_portal
+      handler: index.handler
+      memorySize: 128
+      timeout: 30
+
+  assets:
+    component: static
+    props:
+      cacheControl: "public, max-age=604800, immutable"  # 属性名可能需要调整为小写
+      www: "./public"
+
+  express_blog:
+    component: express
+    props:
+      app: ./express-blog
+      url: ${vars.domain}  # 确保 vars.domain 有定义
+    actions:
+      pre-deploy:
+        - run: npm run build
+          path: ./express-blog
+
+  gateway:
+    component: serverless-gateway
+    props:
+      routes:
+        - route: /~assets
+          value: ${assets.url}  # 假设 assets 组件有一个输出 url
+        - route: /
+          value: ${nextjs_portal.url}  # 假设 nextjs_portal 组件有一个输出 url
+          index: index.html
+        - route: /~portal
+          value: ${nextjs_portal.url}
+          index: index.html
+        - route: /~blog
+          value: ${express_blog.url}  # 假设 express_blog 组件有一个输出 url
